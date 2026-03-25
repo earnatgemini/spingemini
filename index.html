@@ -5,188 +5,164 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Daily Spin & Earn - Bucks</title>
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; text-align: center; background-color: #f0f2f5; margin: 0; padding: 20px; }
-        .dashboard { background: white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); display: inline-block; margin-bottom: 20px; min-width: 300px; }
-        .balance-box { display: flex; justify-content: space-around; margin-top: 10px; }
+        body { font-family: 'Segoe UI', sans-serif; text-align: center; background-color: #f0f2f5; margin: 0; padding: 10px; }
+        .dashboard { background: white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); display: inline-block; margin-top: 20px; min-width: 300px; }
+        .balance-box { display: flex; justify-content: space-around; margin: 15px 0; font-size: 18px; }
         .stat { font-weight: bold; color: #28a745; }
-        
         #wheel-container { margin: 20px auto; position: relative; width: 300px; height: 300px; }
-        canvas { border: 8px solid #333; border-radius: 50%; background: white; transition: transform 4s cubic-bezier(0.17, 0.67, 0.12, 0.99); }
-        
-        .btn { padding: 12px 25px; font-size: 16px; cursor: pointer; border: none; border-radius: 25px; margin: 5px; transition: 0.3s; color: white; }
-        #spin-btn { background: #ff4757; }
+        canvas { border: 8px solid #333; border-radius: 50%; background: white; transition: transform 4s cubic-bezier(0.17, 0.67, 0.12, 0.99); width: 100%; height: 100%; }
+        .btn { padding: 12px 25px; font-size: 16px; cursor: pointer; border: none; border-radius: 25px; margin: 5px; transition: 0.3s; color: white; width: 80%; max-width: 300px; }
+        #spin-btn { background: #ff4757; font-weight: bold; }
+        #login-btn { background: #4285F4; margin-top: 50px; }
         .bonus-btn { background: #1e90ff; }
-        .withdraw-btn { background: #ffa502; margin-top: 15px; }
-        .btn:disabled { background: #ccc; cursor: not-allowed; }
-
-        .ad-slot { width: 100%; height: 90px; background: #ddd; margin: 15px 0; line-height: 90px; color: #666; }
+        .withdraw-btn { background: #ffa502; }
+        .ad-slot { width: 100%; height: 90px; background: #ddd; margin: 15px 0; line-height: 90px; color: #666; overflow: hidden; }
+        #game-area { display: none; }
     </style>
 </head>
 <body>
 
-    <div class="ad-slot">
-        Top Banner Ad
-    </div>
+    <button id="login-btn" class="btn">Google తో లాగిన్ అవ్వండి</button>
 
-    <div class="dashboard">
-        <h2>నా వాలెట్</h2>
-        <div id="user-name">Loading...</div>
-        <div class="balance-box">
-            <div>Bucks: <span id="bucks-bal" class="stat">0</span></div>
-            <div>Wallet: <span id="wallet-bal" class="stat">₹0</span></div>
+    <div id="game-area">
+        <div class="ad-slot">Top Adsterra Banner Here</div>
+
+        <div class="dashboard">
+            <h3 id="user-name">హలో!</h3>
+            <div class="balance-box">
+                <div>Bucks: <span id="bucks-bal" class="stat">0</span></div>
+                <div>Wallet: <span id="wallet-bal" class="stat">₹0</span></div>
+            </div>
+            <div>నేటి స్పిన్స్: <span id="spins-left">50</span>/50</div>
+            <button class="btn withdraw-btn" onclick="handleWithdraw()">Withdraw (Min ₹50)</button>
         </div>
-        <div style="margin-top: 10px;">నేటి స్పిన్స్: <span id="spins-left">50</span>/50</div>
+
+        <div id="wheel-container">
+            <canvas id="wheel" width="300" height="300"></canvas>
+        </div>
+
+        <button id="spin-btn" class="btn" onclick="startSpin()">Spin Now</button>
         
-        <button id="withdraw-btn" class="btn withdraw-btn" onclick="checkWithdraw()">Withdraw (Min ₹50)</button>
-    </div>
+        <div style="margin-top: 20px;">
+            <button class="btn bonus-btn" onclick="claimBonus('daily')">Daily Bonus (950 Bucks)</button>
+            <button class="btn bonus-btn" onclick="claimBonus('hourly')">Hourly Bonus (500 Bucks)</button>
+        </div>
 
-    <div id="wheel-container">
-        <canvas id="wheel" width="300" height="300"></canvas>
-    </div>
-
-    <button id="spin-btn" class="btn" onclick="startSpin()">Spin Now</button>
-    
-    <div class="bonus-area">
-        <button class="btn bonus-btn" onclick="claimBonus('daily')">Daily Bonus (950 Bucks)</button>
-        <button class="btn bonus-btn" onclick="claimBonus('hourly')">Hourly Bonus (500 Bucks)</button>
-    </div>
-
-    <div class="ad-slot">
-        Bottom Banner Ad
+        <div class="ad-slot">Bottom Adsterra Banner Here</div>
     </div>
 
     <script type="module">
-        import { db, auth } from "./firebase-config.js";
-        import { doc, getDoc, updateDoc, increment, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
-        import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+        import { getFirestore, doc, getDoc, setDoc, updateDoc, increment, onSnapshot, serverTimestamp, collection, addDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-        let currentBucks = 0;
-        let spinsToday = 0;
+        const firebaseConfig = {
+            apiKey: "AIzaSyD1P5PoYl467FXxaaWFaCGHWuZs1yUMGwY",
+            authDomain: "gemini-spinning-wheel-game.firebaseapp.com",
+            projectId: "gemini-spinning-wheel-game",
+            storageBucket: "gemini-spinning-wheel-game.firebasestorage.app",
+            messagingSenderId: "691322332189",
+            appId: "1:691322332189:web:e757b79d4d9eb010b692f4"
+        };
 
-        // 1. అథెంటికేషన్ & డేటా లోడింగ్
-        onAuthStateChanged(auth, (user) => {
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const provider = new GoogleAuthProvider();
+
+        let userData = { bucks: 0, spinsToday: 0, walletRupees: 0 };
+
+        // 1. లాగిన్ లాజిక్
+        document.getElementById('login-btn').onclick = async () => {
+            try {
+                await signInWithPopup(auth, provider);
+            } catch (error) {
+                alert("Login Error: " + error.message);
+            }
+        };
+
+        // 2. యూజర్ డేటా చెక్ & డైలీ రీసెట్
+        onAuthStateChanged(auth, async (user) => {
             if (user) {
+                document.getElementById('login-btn').style.display = 'none';
+                document.getElementById('game-area').style.display = 'block';
                 document.getElementById('user-name').innerText = "హలో, " + user.displayName;
-                // రియల్ టైమ్ డేటా అప్‌డేట్
-                onSnapshot(doc(db, "users", user.uid), (doc) => {
-                    const data = doc.data();
-                    if (data) {
-                        currentBucks = data.bucks || 0;
-                        spinsToday = data.spinsToday || 0;
-                        document.getElementById('bucks-bal').innerText = currentBucks;
-                        document.getElementById('wallet-bal').innerText = "₹" + (data.walletRupees || 0);
-                        document.getElementById('spins-left').innerText = (50 - spinsToday);
-                    }
+
+                const userRef = doc(db, "users", user.uid);
+                const userSnap = await getDoc(userRef);
+                const today = new Date().toDateString();
+
+                if (!userSnap.exists()) {
+                    await setDoc(userRef, { bucks: 0, walletRupees: 0, spinsToday: 0, lastDate: today });
+                } else if (userSnap.data().lastDate !== today) {
+                    // రోజు మారింది కాబట్టి స్పిన్స్ రీసెట్
+                    await updateDoc(userRef, { spinsToday: 0, lastDate: today });
+                }
+
+                onSnapshot(userRef, (doc) => {
+                    userData = doc.data();
+                    document.getElementById('bucks-bal').innerText = userData.bucks;
+                    document.getElementById('wallet-bal').innerText = "₹" + userData.walletRupees;
+                    document.getElementById('spins-left').innerText = (50 - userData.spinsToday);
                 });
-            } else {
-                window.location.href = "login.html"; // లాగిన్ అవ్వకపోతే పంపేయండి
             }
         });
 
-        // 2. స్పిన్ లాజిక్
+        // 3. స్పిన్ ఫంక్షన్
         window.startSpin = async () => {
-            if (spinsToday >= 50) return alert("ఈ రోజుకి మీ 50 స్పిన్స్ పూర్తయ్యాయి!");
+            if (userData.spinsToday >= 50) return alert("ఈ రోజు కోటా అయిపోయింది!");
             
             const wheel = document.getElementById('wheel');
-            const randomDeg = Math.floor(Math.random() * 360) + 3600; // 10 రౌండ్లు తిరుగుతుంది
+            const randomDeg = Math.floor(Math.random() * 360) + 3600;
             wheel.style.transform = `rotate(${randomDeg}deg)`;
 
-            // స్పిన్ ఆగిన తర్వాత (4 సెకన్ల తర్వాత)
             setTimeout(async () => {
-                const wonBucks = Math.floor(Math.random() * 200) + 1; // 1 to 200 random bucks
+                const won = Math.floor(Math.random() * 200) + 1;
+                alert(`మీరు ${won} Bucks గెలిచారు!`);
                 
-                // Double Reward Ad (Optional)
-                if(confirm(`మీరు ${wonBucks} Bucks గెలిచారు! వీడియో చూసి డబుల్ చేయాలనుకుంటున్నారా?`)) {
-                    window.open("YOUR_ADSTERRA_DIRECT_LINK", "_blank");
-                    saveData(wonBucks * 2);
-                } else {
-                    saveData(wonBucks);
-                }
+                const userRef = doc(db, "users", auth.currentUser.uid);
+                const newBucks = userData.bucks + won;
+                await updateDoc(userRef, {
+                    bucks: newBucks,
+                    spinsToday: increment(1),
+                    walletRupees: Math.floor(newBucks / 1000)
+                });
             }, 4000);
         };
 
-        // 3. డేటా సేవ్ చేయడం
-        async function saveData(amount) {
-            const user = auth.currentUser;
-            const userRef = doc(db, "users", user.uid);
-            const total = currentBucks + amount;
-            const rupees = Math.floor(total / 1000);
-
-            await updateDoc(userRef, {
-                bucks: total,
-                walletRupees: rupees,
-                spinsToday: increment(1)
-            });
-        }
-
-        // 4. బోనస్ సిస్టమ్
+        // 4. బోనస్ & విత్ డ్రా
         window.claimBonus = (type) => {
             window.open("YOUR_ADSTERRA_DIRECT_LINK", "_blank");
-            let bonus = (type === 'daily') ? 950 : 500;
-            saveData(bonus);
-            alert(`${bonus} Bucks యాడ్ అయ్యాయి!`);
+            const bonus = type === 'daily' ? 950 : 500;
+            updateDoc(doc(db, "users", auth.currentUser.uid), {
+                bucks: increment(bonus),
+                walletRupees: Math.floor((userData.bucks + bonus) / 1000)
+            });
         };
 
-        // 5. విత్ డ్రా చెక్
-               
-        import { collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        window.handleWithdraw = async () => {
+            if (userData.walletRupees < 50) return alert("కనీసం ₹50 ఉండాలి.");
+            const upi = prompt("Enter UPI ID:");
+            const ph = prompt("Enter Phone:");
+            if (upi && ph) {
+                await addDoc(collection(db, "withdrawals"), {
+                    uid: auth.currentUser.uid,
+                    upi, ph, amount: userData.walletRupees,
+                    status: "Pending", time: serverTimestamp()
+                });
+                alert("రిక్వెస్ట్ పంపబడింది!");
+            }
+        };
 
-window.checkWithdraw = async () => {
-    // వాలెట్ బ్యాలెన్స్ ని చెక్ చేయడం
-    const walletText = document.getElementById('wallet-bal').innerText;
-    const rupees = parseInt(walletText.replace('₹', ''));
-
-    if (rupees < 50) {
-        alert("క్షమించండి! కనీసం Rs.50 ఉంటేనే మీరు విత్‌డ్రా చేసుకోగలరు.");
-        return;
-    }
-
-    // యూజర్ వివరాలు అడగడం
-    let upi = prompt("మీ UPI ID ఎంటర్ చేయండి (ఉదా: name@okaxis):");
-    let phone = prompt("మీ ఫోన్ నంబర్ ఎంటర్ చేయండి:");
-
-    if (upi && phone) {
-        const user = auth.currentUser;
-        
-        try {
-            // Firestoreలో 'withdrawals' అనే కొత్త కలెక్షన్‌లో డేటా సేవ్ చేయడం
-            await addDoc(collection(db, "withdrawals"), {
-                uid: user.uid,
-                name: user.displayName,
-                email: user.email,
-                upiId: upi,
-                phoneNumber: phone,
-                amount: rupees,
-                status: "Pending", // మీరు పేమెంట్ చేసాక దీన్ని 'Success' గా మార్చుకోవచ్చు
-                requestDate: serverTimestamp()
-            });
-
-            alert("ధన్యవాదాలు! మీ విత్‌డ్రా రిక్వెస్ట్ మాకు అందింది. 24 గంటల్లో మీ UPI కి డబ్బులు పంపబడతాయి.");
-        } catch (error) {
-            console.error("Error saving withdrawal:", error);
-            alert("సాంకేతిక కారణాల వల్ల రిక్వెస్ట్ పంపలేకపోయాము. మళ్ళీ ప్రయత్నించండి.");
-        }
-    } else {
-        alert("UPI మరియు ఫోన్ నంబర్ వివరాలు తప్పనిసరి!");
-    }
-};
-
-
-
-
-
-
-        
-
-        // వీల్ మీద నంబర్లు గీయడం (Simple Canvas)
+        // వీల్ డ్రాయింగ్
         const ctx = document.getElementById('wheel').getContext('2d');
+        const colors = ['#ff4757', '#2f3542', '#ffa502', '#2ed573', '#1e90ff', '#3742fa', '#8e44ad', '#f1c40f'];
         for(let i=0; i<8; i++) {
             ctx.beginPath();
             ctx.moveTo(150,150);
             ctx.arc(150,150,150, i*Math.PI/4, (i+1)*Math.PI/4);
-            ctx.fillStyle = i % 2 === 0 ? '#ff4757' : '#2f3542';
+            ctx.fillStyle = colors[i];
             ctx.fill();
-            ctx.stroke();
         }
     </script>
 </body>
