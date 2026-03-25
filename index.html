@@ -38,7 +38,7 @@
             <div style="font-size: 14px; margin-bottom: 10px;">
                 నేటి స్పిన్స్: <span id="spins-left">0</span> | రిఫరల్స్: <span id="ref-count">0</span>
             </div>
-            <button class="btn withdraw-btn" onclick="handleWithdraw()">Withdraw (Min ₹50 + 1 Ref)</button>
+            <button class="btn withdraw-btn" onclick="handleWithdraw()">Withdraw (Min Rs.50 + 1 Ref)</button>
             <div class="ref-box">మీ రిఫరల్ లింక్:<br><span id="ref-link" style="color: #2980b9;"></span></div>
         </div>
 
@@ -199,19 +199,46 @@
         };
 
         // 6. Withdraw
+
         window.handleWithdraw = async () => {
-            if (userData.referralCount < 1) return alert("కనీసం ఒకరిని రిఫర్ చేయాలి!");
-            if (userData.walletRupees < 50) return alert("కనీసం ₹50 బ్యాలెన్స్ ఉండాలి.");
-            
-            const upi = prompt("Enter UPI ID:");
-            if (upi) {
-                await addDoc(collection(db, "withdrawals"), {
-                    uid: auth.currentUser.uid, upi, amount: userData.walletRupees,
-                    status: "Pending", date: serverTimestamp()
-                });
-                alert("రిక్వెస్ట్ పంపబడింది!");
-            }
-        };
+    // 1. రిఫరల్ చెక్ (కనీసం 1 ఉండాలి)
+    if (!userData.referralCount || userData.referralCount < 1) {
+        alert("క్షమించండి! విత్ డ్రా చేయాలంటే కనీసం ఒకరిని (1 Referral) రిఫర్ చేయాలి.");
+        return; // ఇక్కడ ఆగిపోతుంది, UPI అడగదు
+    }
+
+    // 2. వాలెట్ బ్యాలెన్స్ చెక్ (కనీసం ₹50 ఉండాలి)
+    if (!userData.walletRupees || userData.walletRupees < 50) {
+        alert("మీ వాలెట్‌లో కనీసం Rs.50 ఉండాలి. ప్రస్తుతం మీ దగ్గర Rs." + (userData.walletRupees || 0) + " మాత్రమే ఉన్నాయి.");
+        return; // ఇక్కడ ఆగిపోతుంది
+    }
+
+    // 3. కండిషన్స్ అన్నీ ఓకే అయితేనే ఇక్కడికి వస్తుంది
+    const upi = prompt("మీ UPI ID ఎంటర్ చేయండి (e.g., name@okaxis):");
+    const ph = prompt("మీ ఫోన్ నంబర్ ఎంటర్ చేయండి:");
+
+    if (upi && ph) {
+        try {
+            await addDoc(collection(db, "withdrawals"), {
+                uid: auth.currentUser.uid,
+                name: auth.currentUser.displayName,
+                upi: upi,
+                phone: ph,
+                amount: userData.walletRupees,
+                status: "Pending",
+                date: serverTimestamp()
+            });
+            alert("ధన్యవాదాలు! మీ రిక్వెస్ట్ పంపబడింది. 24 గంటల్లో వెరిఫై చేసి పేమెంట్ చేయబడుతుంది.");
+        } catch (error) {
+            console.error("Withdraw Error:", error);
+            alert("రిక్వెస్ట్ పంపడంలో సమస్య ఏర్పడింది. మళ్ళీ ప్రయత్నించండి.");
+        }
+    } else {
+        alert("UPI ID మరియు ఫోన్ నంబర్ తప్పనిసరి!");
+    }
+};
+
+
 
         document.getElementById('login-btn').onclick = () => signInWithPopup(auth, provider);
 
