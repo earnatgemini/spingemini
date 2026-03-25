@@ -1,30 +1,80 @@
-<h2>Admin Panel</h2>
-<div id="admin-list">Loading Requests...</div>
+<!DOCTYPE html>
+<html lang="te">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Panel - Withdrawals</title>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; padding: 20px; }
+        .request-card { background: white; padding: 15px; margin-bottom: 15px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); border-left: 5px solid #3498db; }
+        .btn { padding: 8px 15px; margin-right: 10px; cursor: pointer; border: none; border-radius: 5px; color: white; font-weight: bold; }
+        .approve-btn { background: #2980b9; }
+        .paid-btn { background: #27ae60; }
+        .status-tag { font-weight: bold; color: #e67e22; }
+    </style>
+</head>
+<body>
 
-<script type="module">
-    // ... Imports & Config ...
-    const listDiv = document.getElementById('admin-list');
+    <h2>Withdrawal Requests (Admin Only)</h2>
+    <div id="admin-list">Loading Requests...</div>
 
-    // Simple Query (No OrderBy to avoid Index Error)
-    onSnapshot(collection(db, "withdrawals"), (snap) => {
-        listDiv.innerHTML = "";
-        if (snap.empty) listDiv.innerHTML = "No requests found.";
-        snap.forEach(docRes => {
-            const data = docRes.data();
-            const id = docRes.id;
-            listDiv.innerHTML += `
-                <div style="background:white; padding:10px; margin:10px; border-radius:8px;">
-                    <p><b>User:</b> ${data.name} | <b>Phone:</b> ${data.phone}</p>
-                    <p><b>Amount:</b> ₹${data.amount} | <b>UPI:</b> ${data.upi}</p>
-                    <p><b>Status:</b> ${data.status}</p>
-                    <button onclick="updateStatus('${id}', 'Approved')">Approve</button>
-                    <button onclick="updateStatus('${id}', 'Paid')">Mark Paid</button>
-                </div>`;
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getFirestore, collection, onSnapshot, doc, updateDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+        // మీ కన్ఫిగరేషన్ (తప్పకుండా మీ వివరాలే ఉండాలి)
+        const firebaseConfig = {
+            apiKey: "AIzaSyD1P5PoYl467FXxaaWFaCGHWuZs1yUMGwY",
+            authDomain: "gemini-spinning-wheel-game.firebaseapp.com",
+            projectId: "gemini-spinning-wheel-game",
+            storageBucket: "gemini-spinning-wheel-game.firebasestorage.app",
+            messagingSenderId: "691322332189",
+            appId: "1:691322332189:web:e757b79d4d9eb010b692f4"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        const listDiv = document.getElementById('admin-list');
+
+        // రియల్-టైమ్ డేటా లోడింగ్
+        onSnapshot(collection(db, "withdrawals"), (snap) => {
+            listDiv.innerHTML = "";
+            if (snap.empty) {
+                listDiv.innerHTML = "ప్రస్తుతానికి ఎటువంటి విత్‌డ్రా రిక్వెస్ట్‌లు లేవు.";
+                return;
+            }
+
+            snap.forEach((docRes) => {
+                const data = docRes.data();
+                const id = docRes.id;
+                
+                // కార్డు క్రియేషన్
+                const card = document.createElement('div');
+                card.className = 'request-card';
+                card.innerHTML = `
+                    <p><strong>User:</strong> ${data.name || 'Unknown'}</p>
+                    <p><strong>Phone:</strong> ${data.phone || 'N/A'}</p>
+                    <p><strong>Amount:</strong> ₹${data.amount}</p>
+                    <p><strong>UPI ID:</strong> ${data.upi}</p>
+                    <p><strong>Status:</strong> <span class="status-tag">${data.status}</span></p>
+                    <button class="btn approve-btn" onclick="updateReqStatus('${id}', 'Approved')">Approve</button>
+                    <button class="btn paid-btn" onclick="updateReqStatus('${id}', 'Paid')">Mark as Paid</button>
+                `;
+                listDiv.appendChild(card);
+            });
         });
-    });
 
-    window.updateStatus = async (id, s) => {
-        await updateDoc(doc(db, "withdrawals", id), { status: s });
-        alert("Updated to " + s);
-    };
-</script>
+        // స్టేటస్ అప్‌డేట్ ఫంక్షన్
+        window.updateReqStatus = async (id, newStatus) => {
+            try {
+                const docRef = doc(db, "withdrawals", id);
+                await updateDoc(docRef, { status: newStatus });
+                alert("Status updated to: " + newStatus);
+            } catch (e) {
+                alert("Error updating status: " + e.message);
+            }
+        };
+    </script>
+</body>
+</html>
