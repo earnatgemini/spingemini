@@ -18,6 +18,7 @@
         .withdraw-btn { background: #f39c12; }
         .ref-box { background: #ecf0f1; padding: 10px; margin-top: 15px; border-radius: 8px; font-size: 13px; word-break: break-all; }
         #game-area, #login-section { display: none; }
+        #history-list li { background: #f9f9f9; margin-bottom: 8px; padding: 10px; border-radius: 8px; text-align: left; }
     </style>
 </head>
 <body>
@@ -28,91 +29,42 @@
         <button id="login-btn" class="btn" style="background: #4285F4;">Google తో లాగిన్ అవ్వండి</button>
     </div>
 
-<div id="game-area">
-    <div class="dashboard">
-        <h3 id="user-name">Loading...</h3>
-        <div class="balance-box">
-            <div>Bucks: <span id="bucks-bal" class="stat">0</span></div>
-            <div>Wallet: <span id="wallet-bal" class="stat">₹0</span></div>
+    <div id="game-area">
+        <div class="dashboard">
+            <h3 id="user-name">Loading...</h3>
+            <div class="balance-box">
+                <div>Bucks: <span id="bucks-bal" class="stat">0</span></div>
+                <div>Wallet: <span id="wallet-bal" class="stat">₹0</span></div>
+            </div>
+            <div style="font-size: 14px; margin-bottom: 10px;">
+                నేటి స్పిన్స్: <span id="spins-left">0</span> | రిఫరల్స్: <span id="ref-count">0</span>
+            </div>
+            <button class="btn withdraw-btn" onclick="handleWithdraw()">Withdraw (Min ₹50 + 1 Ref)</button>
+            <div class="ref-box">రిఫరల్ లింక్: <span id="ref-link"></span></div>
         </div>
-        <div style="font-size: 14px; margin-bottom: 10px;">
-            నేటి స్పిన్స్: <span id="spins-left">0</span> | రిఫరల్స్: <span id="ref-count">0</span>
+
+        <div id="wheel-container">
+            <canvas id="wheel" width="300" height="300"></canvas>
         </div>
-        <button class="btn withdraw-btn" onclick="handleWithdraw()">Withdraw (Min ₹50 + 1 Ref)</button>
-        <div class="ref-box">రిఫరల్ లింక్: <span id="ref-link"></span></div>
+
+        <button id="spin-btn" class="btn" onclick="startSpin()">Spin (30s Cooldown)</button>
+        
+        <div style="margin-top: 10px;">
+            <button id="daily-btn" class="btn bonus-btn" onclick="claimBonus('daily')">Daily (+10 Spins)</button>
+            <button id="hourly-btn" class="btn bonus-btn" onclick="claimBonus('hourly')">Hourly (+5 Spins)</button>
+        </div>
+
+        <div id="history-section" style="margin: 20px auto; max-width: 350px; text-align: left; background: white; padding: 15px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+            <h4 style="margin: 0; border-bottom: 2px solid #eee; padding-bottom: 5px;">💸 పేమెంట్ హిస్టరీ</h4>
+            <div id="history-empty" style="font-size: 12px; padding: 10px; text-align: center;">ఇంకా రిక్వెస్ట్‌లు లేవు.</div>
+            <ul id="history-list" style="font-size: 12px; list-style: none; padding: 0; margin-top: 10px;"></ul>
+        </div>
     </div>
 
-    <div id="wheel-container">
-        <canvas id="wheel" width="300" height="300"></canvas>
-    </div>
-
-    <button id="spin-btn" class="btn" onclick="startSpin()">Spin (30s Cooldown)</button>
-    
-    <div style="margin-top: 10px;">
-        <button id="daily-btn" class="btn bonus-btn" onclick="claimBonus('daily')">Daily (+10 Spins)</button>
-        <button id="hourly-btn" class="btn bonus-btn" onclick="claimBonus('hourly')">Hourly (+5 Spins)</button>
-    </div>
-
-    <div id="history-section" style="margin: 20px auto; max-width: 350px; text-align: left; background: white; padding: 15px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
-        <h4 style="margin: 0; border-bottom: 2px solid #eee;">💸 పేమెంట్ హిస్టరీ</h4>
-        <div id="history-empty" style="font-size: 12px; padding: 10px;">ఇంకా రిక్వెస్ట్‌లు లేవు.</div>
-        <ul id="history-list" style="font-size: 12px; list-style: none; padding: 0; margin-top: 10px;"></ul>
-    </div>
-</div>
-
-<script type="module">
-    // ... Firebase Imports మరియు Config ఇక్కడ పేస్ట్ చేయండి ...
-
-    // WITHDRAW FUNCTION
-    window.handleWithdraw = async () => {
-        if (!userData.referralCount || userData.referralCount < 1) {
-            alert("కనీసం 1 రిఫరల్ ఉండాలి!"); return;
-        }
-        if (userData.walletRupees < 50) {
-            alert("కనీసం ₹50 ఉండాలి!"); return;
-        }
-
-        const upi = prompt("UPI ID:");
-        const ph = prompt("WhatsApp Number:");
-
-        if (upi && ph) {
-            const amount = userData.walletRupees;
-            await addDoc(collection(db, "withdrawals"), {
-                uid: auth.currentUser.uid,
-                name: auth.currentUser.displayName,
-                upi: upi,
-                phone: ph,
-                amount: amount,
-                status: "Pending",
-                date: serverTimestamp()
-            });
-
-            await updateDoc(doc(db, "users", auth.currentUser.uid), { walletRupees: 0 });
-            alert("రిక్వెస్ట్ పంపబడింది. వాలెట్ బ్యాలెన్స్ కట్ అయ్యింది.");
-        }
-    };
-
-    // HISTORY LOADING LOGIC (onAuthStateChanged లోపల పెట్టండి)
-    const loadHistory = (uid) => {
-        const qH = query(collection(db, "withdrawals"), where("uid", "==", uid));
-        onSnapshot(qH, (snap) => {
-            const list = document.getElementById('history-list');
-            document.getElementById('history-empty').style.display = snap.empty ? "block" : "none";
-            list.innerHTML = "";
-            snap.forEach(dDoc => {
-                const d = dDoc.data();
-                list.innerHTML += `<li style="padding:8px; border-bottom:1px solid #eee;">
-                    <b>₹${d.amount}</b> - <span style="color:blue">${d.status}</span><br>
-                    <small>${d.upi}</small>
-                </li>`;
-            });
-        });
-    };
-</script>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-        import { getFirestore, doc, getDoc, setDoc, updateDoc, increment, onSnapshot, serverTimestamp, collection, query, where, getDocs, addDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { getFirestore, doc, getDoc, setDoc, updateDoc, increment, onSnapshot, serverTimestamp, collection, query, where, getDocs, addDoc, orderBy } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyD1P5PoYl467FXxaaWFaCGHWuZs1yUMGwY",
@@ -132,14 +84,12 @@
         const urlParams = new URLSearchParams(window.location.search);
         const referrerId = urlParams.get('ref');
 
-        // 1. Fingerprint (Device ID)
         async function getDeviceID() {
             const fp = await import('https://openfpcdn.io/fingerprintjs/v4').then(FingerprintJS => FingerprintJS.load());
             const result = await fp.get();
             return result.visitorId;
         }
 
-    // 2. Auth State
         onAuthStateChanged(auth, async (user) => {
             if (user) {
                 const deviceID = await getDeviceID();
@@ -150,10 +100,8 @@
                     if (!referrerId) {
                         alert("జాయిన్ అవ్వడానికి రిఫరల్ లింక్ తప్పనిసరి!");
                         auth.signOut();
-                        location.reload();
                         return;
                     }
-                    // Device check: ఒకే డివైజ్‌లో ఒక అకౌంట్
                     const q = query(collection(db, "users"), where("deviceId", "==", deviceID));
                     const qSnap = await getDocs(q);
                     if (!qSnap.empty) {
@@ -167,7 +115,6 @@
                         deviceId: deviceID, referredBy: referrerId, referralCount: 0,
                         lastDaily: 0, lastHourly: 0, lastSpin: 0, lastDate: new Date().toDateString()
                     });
-                    // రిఫరర్ కి కౌంట్ పెంచడం
                     await updateDoc(doc(db, "users", referrerId), { referralCount: increment(1) });
                 }
 
@@ -175,67 +122,70 @@
                 document.getElementById('game-area').style.display = 'block';
                 document.getElementById('ref-link').innerText = window.location.origin + window.location.pathname + "?ref=" + user.uid;
 
+                // లిజనర్ ఫర్ యూజర్ డేటా
                 onSnapshot(userRef, (doc) => {
                     userData = doc.data();
                     updateUI();
                     checkAutoConvert(user.uid);
                 });
+
+                // లిజనర్ ఫర్ హిస్టరీ (ఇది ఇక్కడ ఉండాలి)
+                loadHistory(user.uid);
+
             } else {
                 document.getElementById('login-section').style.display = 'block';
             }
         });
 
         function updateUI() {
-            document.getElementById('user-name').innerText = "హలో, " + auth.currentUser.displayName;
-            document.getElementById('bucks-bal').innerText = userData.bucks;
-            document.getElementById('wallet-bal').innerText = "₹" + userData.walletRupees;
-            document.getElementById('spins-left').innerText = userData.spinsToday;
-            document.getElementById('ref-count').innerText = userData.referralCount;
+            document.getElementById('user-name').innerText = "హలో, " + (auth.currentUser ? auth.currentUser.displayName : "యూజర్");
+            document.getElementById('bucks-bal').innerText = userData.bucks || 0;
+            document.getElementById('wallet-bal').innerText = "₹" + (userData.walletRupees || 0);
+            document.getElementById('spins-left').innerText = userData.spinsToday || 0;
+            document.getElementById('ref-count').innerText = userData.referralCount || 0;
 
-            // Button Locking Logic
             const now = Date.now();
             const today = new Date().toDateString();
-            
             document.getElementById('daily-btn').disabled = (userData.lastDate === today && userData.lastDaily > 0);
             document.getElementById('hourly-btn').disabled = (now - userData.lastHourly < 3600000);
             document.getElementById('spin-btn').disabled = (now - userData.lastSpin < 30000);
-
-            // user లాగిన్ అయ్యాక ఇది రన్ అవ్వాలి
-const qHistory = query(collection(db, "withdrawals"), where("uid", "==", user.uid), orderBy("date", "desc"));
-
-onSnapshot(qHistory, (snap) => {
-    const histList = document.getElementById('history-list');
-    const emptyMsg = document.getElementById('history-empty');
-    
-    if (snap.empty) {
-        emptyMsg.style.display = "block";
-        histList.innerHTML = "";
-        return;
-    }
-
-    emptyMsg.style.display = "none";
-    histList.innerHTML = "";
-    
-    snap.forEach(docSnap => {
-        const d = docSnap.data();
-        const statusColor = d.status === 'Paid' ? '#27ae60' : (d.status === 'Approved' ? '#2980b9' : '#f39c12');
-        const dateStr = d.date ? d.date.toDate().toLocaleDateString() : 'Loading...';
-
-        histList.innerHTML += `
-            <li style="background: #f9f9f9; margin-bottom: 8px; padding: 10px; border-radius: 8px; border-left: 5px solid ${statusColor};">
-                <div style="display: flex; justify-content: space-between; font-weight: bold;">
-                    <span>₹${d.amount}</span>
-                    <span style="color: ${statusColor}; font-size: 11px;">${d.status.toUpperCase()}</span>
-                </div>
-                <div style="font-size: 11px; color: #95a5a6; margin-top: 3px;">
-                    Date: ${dateStr} | UPI: ${d.upi}
-                </div>
-            </li>`;
-    });
-});
         }
 
-    // 3. Auto Convert: 1000 Bucks = ₹1
+        const loadHistory = (uid) => {
+            // Index Error నివారించడానికి మొదట orderBy లేకుండా ట్రై చేయి, 
+            // ఒకవేళ వస్తే బ్రౌజర్ కన్సోల్ లో ఉన్న లింక్ క్లిక్ చేసి ఇండెక్స్ క్రియేట్ చేయాలి.
+            const qH = query(collection(db, "withdrawals"), where("uid", "==", uid), orderBy("date", "desc"));
+            onSnapshot(qH, (snap) => {
+                const list = document.getElementById('history-list');
+                const emptyMsg = document.getElementById('history-empty');
+                list.innerHTML = "";
+                
+                if (snap.empty) {
+                    emptyMsg.style.display = "block";
+                } else {
+                    emptyMsg.style.display = "none";
+                    snap.forEach(dDoc => {
+                        const d = dDoc.data();
+                        const statusColor = d.status === 'Paid' ? '#27ae60' : (d.status === 'Approved' ? '#2980b9' : '#f39c12');
+                        const dDate = d.date ? d.date.toDate().toLocaleDateString() : 'Pending...';
+                        
+                        list.innerHTML += `
+                            <li style="border-left: 5px solid ${statusColor};">
+                                <div style="display: flex; justify-content: space-between; font-weight: bold;">
+                                    <span>₹${d.amount}</span>
+                                    <span style="color: ${statusColor}; font-size: 11px;">${d.status.toUpperCase()}</span>
+                                </div>
+                                <div style="font-size: 10px; color: #7f8c8d; margin-top: 5px;">
+                                    Date: ${dDate} | UPI: ${d.upi}
+                                </div>
+                            </li>`;
+                    });
+                }
+            }, (error) => {
+                console.error("History Loading Error: ", error);
+            });
+        };
+
         async function checkAutoConvert(uid) {
             if (userData.bucks >= 1000) {
                 await updateDoc(doc(db, "users", uid), {
@@ -245,7 +195,6 @@ onSnapshot(qHistory, (snap) => {
             }
         }
 
-    // 4. Spin Logic
         window.startSpin = async () => {
             if (userData.spinsToday <= 0) return alert("స్పిన్స్ అయిపోయాయి!");
             const now = Date.now();
@@ -260,12 +209,10 @@ onSnapshot(qHistory, (snap) => {
             setTimeout(async () => {
                 const won = Math.floor(Math.random() * 200) + 1;
                 let finalWon = won;
-                
                 if (confirm(`${won} Bucks గెలిచారు! వీడియో చూసి Double (x2) చేయాలా?`)) {
                     window.open("YOUR_ADSTERRA_DIRECT_LINK", "_blank");
                     finalWon = won * 2;
                 }
-
                 await updateDoc(doc(db, "users", auth.currentUser.uid), {
                     bucks: increment(finalWon),
                     spinsToday: increment(-1)
@@ -273,81 +220,45 @@ onSnapshot(qHistory, (snap) => {
             }, 4000);
         };
 
-    // 5. Bonus Logic (Hourly/Daily)
         window.claimBonus = async (type) => {
             window.open("YOUR_ADSTERRA_DIRECT_LINK", "_blank");
             const userRef = doc(db, "users", auth.currentUser.uid);
             const now = Date.now();
-
             if (type === 'daily') {
                 await updateDoc(userRef, { spinsToday: increment(10), lastDaily: now, lastDate: new Date().toDateString() });
             } else {
                 await updateDoc(userRef, { spinsToday: increment(5), lastHourly: now });
             }
-            alert("Bonus యాడ్ అయ్యింది! Ads చూసినందుకు ధన్యవాదాలు.");
+            alert("Bonus యాడ్ అయ్యింది!");
         };
 
-        // 6. Withdraw
+        window.handleWithdraw = async () => {
+            if (!userData.referralCount || userData.referralCount < 1) {
+                alert("కనీసం 1 రిఫరల్ ఉండాలి!"); return;
+            }
+            if (userData.walletRupees < 50) {
+                alert("కనీసం ₹50 ఉండాలి!"); return;
+            }
+            const upi = prompt("UPI ID:");
+            const ph = prompt("WhatsApp Number:");
+            if (upi && ph) {
+                const amount = userData.walletRupees;
+                await addDoc(collection(db, "withdrawals"), {
+                    uid: auth.currentUser.uid,
+                    name: auth.currentUser.displayName,
+                    upi: upi,
+                    phone: ph,
+                    amount: amount,
+                    status: "Pending",
+                    date: serverTimestamp()
+                });
+                await updateDoc(doc(db, "users", auth.currentUser.uid), { walletRupees: 0 });
+                alert("రిక్వెస్ట్ పంపబడింది!");
+            }
+        };
 
- 
-
-    // 2. వాలెట్ బ్యాలెన్స్ చెక్ (కనీసం ₹50 ఉండాలి)
- 
-               // Checking ................
-      window.handleWithdraw = async () => {
-    // 1. సెక్యూరిటీ చెక్స్
-    if (!userData.referralCount || userData.referralCount < 1) {
-        alert("క్షమించండి! విత్ డ్రా చేయాలంటే కనీసం ఒకరిని (1 Referral) రిఫర్ చేయాలి.");
-        return;
-    }
-
-    if (!userData.walletRupees || userData.walletRupees < 50) {
-        alert("మీ వాలెట్‌లో కనీసం ₹50 ఉండాలి.");
-        return;
-    }
-
-    // 2. యూజర్ నుండి వివరాలు తీసుకోవడం
-    const upi = prompt("మీ UPI ID ఎంటర్ చేయండి (e.g., name@okaxis):");
-    const ph = prompt("మీ ఫోన్ నంబర్ (WhatsApp) ఎంటర్ చేయండి:");
-
-    if (upi && ph) {
-        try {
-            const amountToDeduct = userData.walletRupees; // ప్రస్తుత బ్యాలెన్స్
-
-            // 3. Firestore లో రిక్వెస్ట్ సేవ్ చేయడం
-            await addDoc(collection(db, "withdrawals"), {
-                uid: auth.currentUser.uid,
-                name: auth.currentUser.displayName,
-                email: auth.currentUser.email,
-                upi: upi,
-                phone: ph, // ఫోన్ నంబర్ ఇక్కడ యాడ్ అయింది
-                amount: amountToDeduct,
-                status: "Pending", // Default status
-                date: serverTimestamp()
-            });
-
-            // 4. వాలెట్ నుండి అమౌంట్ వెంటనే కట్ చేయడం (Reset to 0)
-            const userRef = doc(db, "users", auth.currentUser.uid);
-            await updateDoc(userRef, {
-                walletRupees: 0 
-            });
-
-            alert("రిక్వెస్ట్ పంపబడింది! మీ వాలెట్ నుండి ₹" + amountToDeduct + " కట్ చేయబడ్డాయి. పేమెంట్ హిస్టరీలో స్టేటస్ చెక్ చేసుకోండి.");
-            
-        } catch (error) {
-            console.error("Withdrawal Error:", error);
-            alert("సాంకేతిక కారణాల వల్ల రిక్వెస్ట్ పంపలేకపోయాము. మళ్ళీ ప్రయత్నించండి.");
-        }
-    } else {
-        alert("UPI ID మరియు ఫోన్ నంబర్ రెండూ తప్పనిసరి!");
-    }
-};  
-                
-                // Checking ................
-    
         document.getElementById('login-btn').onclick = () => signInWithPopup(auth, provider);
 
-        // Drawing simple wheel
         const ctx = document.getElementById('wheel').getContext('2d');
         const colors = ['#e74c3c','#3498db','#f1c40f','#2ecc71','#9b59b6','#1abc9c','#e67e22','#34495e'];
         for(let i=0; i<8; i++) {
