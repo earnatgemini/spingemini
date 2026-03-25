@@ -40,6 +40,14 @@
             </div>
             <button class="btn withdraw-btn" onclick="handleWithdraw()">Withdraw (Min Rs.50 + 1 Ref)</button>
             <div class="ref-box">మీ రిఫరల్ లింక్:<br><span id="ref-link" style="color: #2980b9;"></span></div>
+
+             <div id="history-section" style="margin: 20px auto; max-width: 350px; text-align: left; background: white; padding: 15px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+         <h4 style="margin-top: 0; color: #2c3e50; border-bottom: 2px solid #eee; padding-bottom: 5px;">💸 మీ పేమెంట్ హిస్టరీ</h4>
+         <div id="history-empty" style="font-size: 13px; color: #7f8c8d; text-align: center; padding: 10px;">ఇంకా ఏ విధమైన విత్‌డ్రా రిక్వెస్ట్‌లు లేవు.</div>
+         <ul id="history-list" style="font-size: 13px; list-style: none; padding: 0; max-height: 200px; overflow-y: auto;">
+             </ul>
+</div>
+            
         </div>
 
         <div id="wheel-container">
@@ -84,7 +92,7 @@
             return result.visitorId;
         }
 
-        // 2. Auth State
+    // 2. Auth State
         onAuthStateChanged(auth, async (user) => {
             if (user) {
                 const deviceID = await getDeviceID();
@@ -144,9 +152,43 @@
             document.getElementById('daily-btn').disabled = (userData.lastDate === today && userData.lastDaily > 0);
             document.getElementById('hourly-btn').disabled = (now - userData.lastHourly < 3600000);
             document.getElementById('spin-btn').disabled = (now - userData.lastSpin < 30000);
+
+            // user లాగిన్ అయ్యాక ఇది రన్ అవ్వాలి
+const qHistory = query(collection(db, "withdrawals"), where("uid", "==", user.uid), orderBy("date", "desc"));
+
+onSnapshot(qHistory, (snap) => {
+    const histList = document.getElementById('history-list');
+    const emptyMsg = document.getElementById('history-empty');
+    
+    if (snap.empty) {
+        emptyMsg.style.display = "block";
+        histList.innerHTML = "";
+        return;
+    }
+
+    emptyMsg.style.display = "none";
+    histList.innerHTML = "";
+    
+    snap.forEach(docSnap => {
+        const d = docSnap.data();
+        const statusColor = d.status === 'Paid' ? '#27ae60' : (d.status === 'Approved' ? '#2980b9' : '#f39c12');
+        const dateStr = d.date ? d.date.toDate().toLocaleDateString() : 'Loading...';
+
+        histList.innerHTML += `
+            <li style="background: #f9f9f9; margin-bottom: 8px; padding: 10px; border-radius: 8px; border-left: 5px solid ${statusColor};">
+                <div style="display: flex; justify-content: space-between; font-weight: bold;">
+                    <span>₹${d.amount}</span>
+                    <span style="color: ${statusColor}; font-size: 11px;">${d.status.toUpperCase()}</span>
+                </div>
+                <div style="font-size: 11px; color: #95a5a6; margin-top: 3px;">
+                    Date: ${dateStr} | UPI: ${d.upi}
+                </div>
+            </li>`;
+    });
+});
         }
 
-        // 3. Auto Convert: 1000 Bucks = ₹1
+    // 3. Auto Convert: 1000 Bucks = ₹1
         async function checkAutoConvert(uid) {
             if (userData.bucks >= 1000) {
                 await updateDoc(doc(db, "users", uid), {
@@ -156,7 +198,7 @@
             }
         }
 
-        // 4. Spin Logic
+    // 4. Spin Logic
         window.startSpin = async () => {
             if (userData.spinsToday <= 0) return alert("స్పిన్స్ అయిపోయాయి!");
             const now = Date.now();
@@ -184,7 +226,7 @@
             }, 4000);
         };
 
-        // 5. Bonus Logic (Hourly/Daily)
+    // 5. Bonus Logic (Hourly/Daily)
         window.claimBonus = async (type) => {
             window.open("YOUR_ADSTERRA_DIRECT_LINK", "_blank");
             const userRef = doc(db, "users", auth.currentUser.uid);
@@ -200,46 +242,62 @@
 
         // 6. Withdraw
 
-        window.handleWithdraw = async () => {
-    // 1. రిఫరల్ చెక్ (కనీసం 1 ఉండాలి)
-    if (!userData.referralCount || userData.referralCount < 1) {
-        alert("క్షమించండి! విత్ డ్రా చేయాలంటే కనీసం ఒకరిని (1 Referral) రిఫర్ చేయాలి.");
-        return; // ఇక్కడ ఆగిపోతుంది, UPI అడగదు
-    }
+ 
 
     // 2. వాలెట్ బ్యాలెన్స్ చెక్ (కనీసం ₹50 ఉండాలి)
-    if (!userData.walletRupees || userData.walletRupees < 50) {
-        alert("మీ వాలెట్‌లో కనీసం Rs.50 ఉండాలి. ప్రస్తుతం మీ దగ్గర Rs." + (userData.walletRupees || 0) + " మాత్రమే ఉన్నాయి.");
-        return; // ఇక్కడ ఆగిపోతుంది
+ 
+               // Checking ................
+      window.handleWithdraw = async () => {
+    // 1. సెక్యూరిటీ చెక్స్
+    if (!userData.referralCount || userData.referralCount < 1) {
+        alert("క్షమించండి! విత్ డ్రా చేయాలంటే కనీసం ఒకరిని (1 Referral) రిఫర్ చేయాలి.");
+        return;
     }
 
-    // 3. కండిషన్స్ అన్నీ ఓకే అయితేనే ఇక్కడికి వస్తుంది
+    if (!userData.walletRupees || userData.walletRupees < 50) {
+        alert("మీ వాలెట్‌లో కనీసం ₹50 ఉండాలి.");
+        return;
+    }
+
+    // 2. యూజర్ నుండి వివరాలు తీసుకోవడం
     const upi = prompt("మీ UPI ID ఎంటర్ చేయండి (e.g., name@okaxis):");
-    const ph = prompt("మీ ఫోన్ నంబర్ ఎంటర్ చేయండి:");
+    const ph = prompt("మీ ఫోన్ నంబర్ (WhatsApp) ఎంటర్ చేయండి:");
 
     if (upi && ph) {
         try {
+            const amountToDeduct = userData.walletRupees; // ప్రస్తుత బ్యాలెన్స్
+
+            // 3. Firestore లో రిక్వెస్ట్ సేవ్ చేయడం
             await addDoc(collection(db, "withdrawals"), {
                 uid: auth.currentUser.uid,
                 name: auth.currentUser.displayName,
+                email: auth.currentUser.email,
                 upi: upi,
-                phone: ph,
-                amount: userData.walletRupees,
-                status: "Pending",
+                phone: ph, // ఫోన్ నంబర్ ఇక్కడ యాడ్ అయింది
+                amount: amountToDeduct,
+                status: "Pending", // Default status
                 date: serverTimestamp()
             });
-            alert("ధన్యవాదాలు! మీ రిక్వెస్ట్ పంపబడింది. 24 గంటల్లో వెరిఫై చేసి పేమెంట్ చేయబడుతుంది.");
+
+            // 4. వాలెట్ నుండి అమౌంట్ వెంటనే కట్ చేయడం (Reset to 0)
+            const userRef = doc(db, "users", auth.currentUser.uid);
+            await updateDoc(userRef, {
+                walletRupees: 0 
+            });
+
+            alert("రిక్వెస్ట్ పంపబడింది! మీ వాలెట్ నుండి ₹" + amountToDeduct + " కట్ చేయబడ్డాయి. పేమెంట్ హిస్టరీలో స్టేటస్ చెక్ చేసుకోండి.");
+            
         } catch (error) {
-            console.error("Withdraw Error:", error);
-            alert("రిక్వెస్ట్ పంపడంలో సమస్య ఏర్పడింది. మళ్ళీ ప్రయత్నించండి.");
+            console.error("Withdrawal Error:", error);
+            alert("సాంకేతిక కారణాల వల్ల రిక్వెస్ట్ పంపలేకపోయాము. మళ్ళీ ప్రయత్నించండి.");
         }
     } else {
-        alert("UPI ID మరియు ఫోన్ నంబర్ తప్పనిసరి!");
+        alert("UPI ID మరియు ఫోన్ నంబర్ రెండూ తప్పనిసరి!");
     }
-};
-
-
-
+};  
+                
+                // Checking ................
+    
         document.getElementById('login-btn').onclick = () => signInWithPopup(auth, provider);
 
         // Drawing simple wheel
