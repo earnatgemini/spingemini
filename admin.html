@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="te">
+<head>
+    <meta charset="UTF-8">
+    <title>Admin Panel - Payments</title>
+    <style>
+        body { font-family: sans-serif; padding: 20px; background: #f4f4f4; }
+        .card { background: white; padding: 15px; margin-bottom: 10px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .btn { padding: 5px 15px; cursor: pointer; border: none; border-radius: 4px; color: white; margin-right: 5px; }
+        .pending { background: #f39c12; } .approved { background: #3498db; } .paid { background: #2ecc71; }
+    </style>
+</head>
+<body>
+    <h2>Withdrawal Requests (Admin)</h2>
+    <div id="requests-list">Loading...</div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getFirestore, collection, onSnapshot, doc, updateDoc, query, orderBy } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+        const firebaseConfig = { /* మీ Config ఇక్కడ పేస్ట్ చేయండి */ };
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        const listDiv = document.getElementById('requests-list');
+
+        onSnapshot(query(collection(db, "withdrawals"), orderBy("date", "desc")), (snap) => {
+            listDiv.innerHTML = "";
+            snap.forEach(res => {
+                const data = res.data();
+                const id = res.id;
+                listDiv.innerHTML += `
+                    <div class="card">
+                        <p><strong>User:</strong> ${data.name} | <strong>Amount:</strong> ₹${data.amount}</p>
+                        <p><strong>UPI:</strong> ${data.upi} | <strong>Status:</strong> ${data.status}</p>
+                        <button class="btn approved" onclick="updateStatus('${id}', 'Approved')">Approve</button>
+                        <button class="btn paid" onclick="updateStatus('${id}', 'Paid')">Mark Paid</button>
+                    </div>`;
+            });
+        });
+
+        window.updateStatus = async (id, newStatus) => {
+            await updateDoc(doc(db, "withdrawals", id), { status: newStatus });
+            alert("Status updated to " + newStatus);
+        };
+    </script>
+</body>
+</html>
