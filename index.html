@@ -128,19 +128,55 @@
         };
 
         // 5. విత్ డ్రా చెక్
-        window.checkWithdraw = () => {
-            const rupees = parseInt(document.getElementById('wallet-bal').innerText.replace('₹',''));
-            if (rupees < 50) {
-                alert("కనీసం ₹50 ఉండాలి.");
-            } else {
-                let upi = prompt("మీ UPI ID ఎంటర్ చేయండి:");
-                let phone = prompt("మీ ఫోన్ నంబర్ ఎంటర్ చేయండి:");
-                if(upi && phone) {
-                    alert("మీ రిక్వెస్ట్ మాన్యువల్ వెరిఫికేషన్ కోసం పంపబడింది. 24 గంటల్లో డబ్బులు అందుతాయి.");
-                    // ఇక్కడ Firestore లో 'withdrawals' కలెక్షన్ కి డేటా పంపాలి
-                }
-            }
-        };
+               
+        import { collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+window.checkWithdraw = async () => {
+    // వాలెట్ బ్యాలెన్స్ ని చెక్ చేయడం
+    const walletText = document.getElementById('wallet-bal').innerText;
+    const rupees = parseInt(walletText.replace('₹', ''));
+
+    if (rupees < 50) {
+        alert("క్షమించండి! కనీసం Rs.50 ఉంటేనే మీరు విత్‌డ్రా చేసుకోగలరు.");
+        return;
+    }
+
+    // యూజర్ వివరాలు అడగడం
+    let upi = prompt("మీ UPI ID ఎంటర్ చేయండి (ఉదా: name@okaxis):");
+    let phone = prompt("మీ ఫోన్ నంబర్ ఎంటర్ చేయండి:");
+
+    if (upi && phone) {
+        const user = auth.currentUser;
+        
+        try {
+            // Firestoreలో 'withdrawals' అనే కొత్త కలెక్షన్‌లో డేటా సేవ్ చేయడం
+            await addDoc(collection(db, "withdrawals"), {
+                uid: user.uid,
+                name: user.displayName,
+                email: user.email,
+                upiId: upi,
+                phoneNumber: phone,
+                amount: rupees,
+                status: "Pending", // మీరు పేమెంట్ చేసాక దీన్ని 'Success' గా మార్చుకోవచ్చు
+                requestDate: serverTimestamp()
+            });
+
+            alert("ధన్యవాదాలు! మీ విత్‌డ్రా రిక్వెస్ట్ మాకు అందింది. 24 గంటల్లో మీ UPI కి డబ్బులు పంపబడతాయి.");
+        } catch (error) {
+            console.error("Error saving withdrawal:", error);
+            alert("సాంకేతిక కారణాల వల్ల రిక్వెస్ట్ పంపలేకపోయాము. మళ్ళీ ప్రయత్నించండి.");
+        }
+    } else {
+        alert("UPI మరియు ఫోన్ నంబర్ వివరాలు తప్పనిసరి!");
+    }
+};
+
+
+
+
+
+
+        
 
         // వీల్ మీద నంబర్లు గీయడం (Simple Canvas)
         const ctx = document.getElementById('wheel').getContext('2d');
