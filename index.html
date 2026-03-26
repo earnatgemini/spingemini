@@ -140,7 +140,7 @@
         function updateUI() {
             document.getElementById('user-name').innerText = "హలో, " + (auth.currentUser ? auth.currentUser.displayName : "యూజర్");
             document.getElementById('bucks-bal').innerText = userData.bucks || 0;
-            document.getElementById('wallet-bal').innerText = "₹" + (userData.walletRupees || 0);
+            document.getElementById('wallet-bal').innerText = "Rs." + (userData.walletRupees || 0);
             document.getElementById('spins-left').innerText = userData.spinsToday || 0;
             document.getElementById('ref-count').innerText = userData.referralCount || 0;
 
