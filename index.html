@@ -39,7 +39,7 @@
             <div style="font-size: 14px; margin-bottom: 10px;">
                 నేటి స్పిన్స్: <span id="spins-left">0</span> | రిఫరల్స్: <span id="ref-count">0</span>
             </div>
-            <button class="btn withdraw-btn" onclick="handleWithdraw()">Withdraw (Min ₹50 + 1 Ref)</button>
+            <button class="btn withdraw-btn" onclick="handleWithdraw()">Withdraw (Min Rs.50 + 1 Ref)</button>
             <div class="ref-box">రిఫరల్ లింక్: <span id="ref-link"></span></div>
         </div>
 
@@ -105,13 +105,13 @@
                     const q = query(collection(db, "users"), where("deviceId", "==", deviceID));
                     const qSnap = await getDocs(q);
                     if (!qSnap.empty) {
-                        alert("ఈ డివైజ్‌లో ఇప్పటికే ఒక అకౌంట్ ఉంది!");
+                        alert("ఈ డివైజ్‌లో ఇప్పటికే ఒక అకౌంట్ ఉంది! వేరే మొబైల్ లో ట్రై చేయండి.");
                         auth.signOut();
                         return;
                     }
 
                     await setDoc(userRef, {
-                        bucks: 0, walletRupees: 0, spinsToday: 10, 
+                        bucks: 0, walletRupees: 0, spinsToday: 50, 
                         deviceId: deviceID, referredBy: referrerId, referralCount: 0,
                         lastDaily: 0, lastHourly: 0, lastSpin: 0, lastDate: new Date().toDateString()
                     });
@@ -209,7 +209,7 @@
             setTimeout(async () => {
                 const won = Math.floor(Math.random() * 200) + 1;
                 let finalWon = won;
-                if (confirm(`${won} Bucks గెలిచారు! వీడియో చూసి Double (x2) చేయాలా?`)) {
+                if (confirm(`${won} Bucks గెలిచారు! వీడియో చుస్తే Double (x2) అవుతాయి.`)) {
                     window.open("YOUR_ADSTERRA_DIRECT_LINK", "_blank");
                     finalWon = won * 2;
                 }
@@ -232,31 +232,66 @@
             alert("Bonus యాడ్ అయ్యింది!");
         };
 
-        window.handleWithdraw = async () => {
-            if (!userData.referralCount || userData.referralCount < 1) {
-                alert("కనీసం 1 రిఫరల్ ఉండాలి!"); return;
-            }
-            if (userData.walletRupees < 50) {
-                alert("కనీసం ₹50 ఉండాలి!"); return;
-            }
-            const upi = prompt("UPI ID:");
-            const ph = prompt("WhatsApp Number:");
-            if (upi && ph) {
-                const amount = userData.walletRupees;
-                await addDoc(collection(db, "withdrawals"), {
-                    uid: auth.currentUser.uid,
-                    name: auth.currentUser.displayName,
-                    upi: upi,
-                    phone: ph,
-                    amount: amount,
-                    status: "Pending",
-                    date: serverTimestamp()
-                });
-                await updateDoc(doc(db, "users", auth.currentUser.uid), { walletRupees: 0 });
-                alert("రిక్వెస్ట్ పంపబడింది!");
-            }
-        };
+       window.handleWithdraw = async () => {
+    // 1. బటన్‌ను పట్టుకోవడం (To disable it)
+    const withdrawBtn = document.querySelector('.withdraw-btn');
 
+    // 2. సెక్యూరిటీ చెక్స్
+    if (!userData.referralCount || userData.referralCount < 1) {
+        alert("క్షమించండి! విత్ డ్రా చేయాలంటే కనీసం ఒకరిని రిఫర్ చేయాలి.");
+        return;
+    }
+
+    if (!userData.walletRupees || userData.walletRupees < 50) {
+        alert("మీ వాలెట్‌లో కనీసం Rs.50 ఉండాలి.");
+        return;
+    }
+
+    // 3. వివరాలు తీసుకోవడం
+    const upi = prompt("మీ UPI ID ఎంటర్ చేయండి:");
+    const ph = prompt("మీ ఫోన్ నంబర్ ఎంటర్ చేయండి:");
+
+    if (upi && ph) {
+        try {
+            // బటన్‌ను డిసేబుల్ చేయడం (నెట్ స్లోగా ఉన్నా రెండోసారి నొక్కలేరు)
+            withdrawBtn.disabled = true;
+            withdrawBtn.innerText = "Processing...";
+            withdrawBtn.style.opacity = "0.5";
+
+            const amountToDeduct = userData.walletRupees;
+
+            // 4. Firestore లో రిక్వెస్ట్ సేవ్ చేయడం
+            await addDoc(collection(db, "withdrawals"), {
+                uid: auth.currentUser.uid,
+                name: auth.currentUser.displayName,
+                email: auth.currentUser.email,
+                upi: upi,
+                phone: ph,
+                amount: amountToDeduct,
+                status: "Pending",
+                date: serverTimestamp()
+            });
+
+            // 5. వాలెట్ బ్యాలెన్స్ 0 చేయడం
+            const userRef = doc(db, "users", auth.currentUser.uid);
+            await updateDoc(userRef, {
+                walletRupees: 0 
+            });
+
+            alert("రిక్వెస్ట్ సక్సెస్ అయ్యింది! మీ వాలెట్ బ్యాలెన్స్ అప్‌డేట్ అయ్యింది.");
+            
+        } catch (error) {
+            console.error("Withdrawal Error:", error);
+            alert("సమస్య ఏర్పడింది. మళ్ళీ ప్రయత్నించండి.");
+            // ఎర్రర్ వస్తే బటన్‌ను మళ్ళీ ఎనేబుల్ చేయడం
+            withdrawBtn.disabled = false;
+            withdrawBtn.innerText = "Withdraw (Min ₹50 + 1 Ref)";
+            withdrawBtn.style.opacity = "1";
+        }
+    } else {
+        alert("UPI ID మరియు ఫోన్ నంబర్ తప్పనిసరి!");
+    }
+};
         document.getElementById('login-btn').onclick = () => signInWithPopup(auth, provider);
 
         const ctx = document.getElementById('wheel').getContext('2d');
