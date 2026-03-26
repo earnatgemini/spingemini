@@ -16,18 +16,20 @@
         canvas { border: 5px solid #333; border-radius: 50%; width: 100%; height: 100%; transition: transform 4s cubic-bezier(0.1, 0.7, 0.1, 1); }
         .btn { padding: 12px; font-size: 16px; cursor: pointer; border: none; border-radius: 8px; margin: 5px; width: 85%; max-width: 300px; color: white; font-weight: bold; }
         #spin-btn { background: #e74c3c; }
+        #spin-btn:disabled { background: #bdc3c7; }
         .bonus-btn { background: #3498db; }
+        .bonus-btn:disabled { background: #bdc3c7; cursor: not-allowed; }
         .withdraw-btn { background: #f39c12; }
         .ref-box { background: #ecf0f1; padding: 10px; margin-top: 15px; border-radius: 8px; font-size: 13px; word-break: break-all; }
         #game-area, #login-section { display: none; }
-        #history-list li { background: #f9f9f9; margin-bottom: 8px; padding: 10px; border-radius: 8px; text-align: left; list-style: none; border-left: 5px solid #3498db; }
+        #history-list li { background: #f9f9f9; margin-bottom: 8px; padding: 10px; border-radius: 8px; text-align: left; }
     </style>
 </head>
 <body>
 
     <div id="login-section">
         <h2 style="margin-top: 50px;">Spin & Earn</h2>
-        <p>రిఫరల్ లింక్ ద్వారా మాత్రమే లాగిన్ అవ్వగలరు.</p>
+        <p>జాయిన్ అవ్వడానికి రిఫరల్ లింక్ తప్పనిసరి.</p>
         <button id="login-btn" class="btn" style="background: #4285F4;">Google తో లాగిన్ అవ్వండి</button>
     </div>
 
@@ -41,7 +43,7 @@
             <div style="font-size: 14px; margin-bottom: 10px;">
                 నేటి స్పిన్స్: <span id="spins-left">0</span> | రిఫరల్స్: <span id="ref-count">0</span>
             </div>
-            <button class="btn withdraw-btn" id="withdraw-action-btn">Withdraw (Min ₹50 + 1 Ref)</button>
+            <button class="btn withdraw-btn" onclick="handleWithdraw()">Withdraw (Min ₹50 + 1 Ref)</button>
             <div class="ref-box">రిఫరల్ లింక్: <span id="ref-link"></span></div>
         </div>
 
@@ -56,23 +58,24 @@
             <script type="text/javascript" src="https://www.highperformanceformat.com/dfd54a903787abb736147e0c8dce5868/invoke.js"></script>
         </div>
 
-        <button id="spin-btn" class="btn">Spin (Free)</button>
+        <button id="spin-btn" class="btn" onclick="startSpin()">Spin (Free)</button>
         
         <div style="margin-top: 10px;">
-            <button id="daily-btn" class="btn bonus-btn">Daily Reward (+10 Spins)</button>
-            <button id="hourly-btn" class="btn bonus-btn">Hourly Reward (+5 Spins)</button>
+            <button id="daily-btn" class="btn bonus-btn" onclick="claimBonus('daily')">Daily (+10 Spins)</button>
+            <button id="hourly-btn" class="btn bonus-btn" onclick="claimBonus('hourly')">Hourly (+5 Spins)</button>
         </div>
 
         <div id="history-section" style="margin: 20px auto; max-width: 350px; text-align: left; background: white; padding: 15px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
             <h4 style="margin: 0; border-bottom: 2px solid #eee; padding-bottom: 5px;">💸 పేమెంట్ హిస్టరీ</h4>
-            <ul id="history-list" style="font-size: 12px; padding: 0; margin-top: 10px;"></ul>
+            <div id="history-empty" style="font-size: 12px; padding: 10px; text-align: center;">ఇంకా రిక్వెస్ట్‌లు లేవు.</div>
+            <ul id="history-list" style="font-size: 12px; list-style: none; padding: 0; margin-top: 10px;"></ul>
         </div>
     </div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-        import { getFirestore, doc, getDoc, setDoc, updateDoc, increment, onSnapshot, serverTimestamp, collection, addDoc, query, where, orderBy } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { getFirestore, doc, getDoc, setDoc, updateDoc, increment, onSnapshot, serverTimestamp, collection, query, where, getDocs, addDoc, orderBy } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyD1P5PoYl467FXxaaWFaCGHWuZs1yUMGwY",
@@ -90,18 +93,29 @@
 
         const smartLink = "https://www.profitablecpmratenetwork.com/bhzscizvg?key=fda7241a1c299d27f1f7ada0b1f723b1";
         let userData = {};
-        let spinCounter = 0; 
+        let spinCounter = 0;
         const urlParams = new URLSearchParams(window.location.search);
         const referrerId = urlParams.get('ref');
 
+        async function getDeviceID() {
+            const fp = await import('https://openfpcdn.io/fingerprintjs/v4').then(FingerprintJS => FingerprintJS.load());
+            const result = await fp.get();
+            return result.visitorId;
+        }
+
         onAuthStateChanged(auth, async (user) => {
             if (user) {
+                const deviceID = await getDeviceID();
                 const userRef = doc(db, "users", user.uid);
                 const userSnap = await getDoc(userRef);
 
                 if (!userSnap.exists()) {
                     if (!referrerId) { alert("రిఫరల్ లింక్ తప్పనిసరి!"); auth.signOut(); return; }
-                    await setDoc(userRef, { bucks: 100, walletRupees: 0, spinsToday: 50, referredBy: referrerId, referralCount: 0, lastSpin: 0 });
+                    const q = query(collection(db, "users"), where("deviceId", "==", deviceID));
+                    const qSnap = await getDocs(q);
+                    if (!qSnap.empty) { alert("ఈ డివైజ్‌లో ఇప్పటికే ఒక అకౌంట్ ఉంది!"); auth.signOut(); return; }
+
+                    await setDoc(userRef, { bucks: 100, walletRupees: 0, spinsToday: 20, deviceId: deviceID, referredBy: referrerId, referralCount: 0, lastSpin: 0, lastDaily: 0, lastHourly: 0, lastDate: new Date().toDateString() });
                     await updateDoc(doc(db, "users", referrerId), { referralCount: increment(1) });
                 }
 
@@ -111,11 +125,8 @@
 
                 onSnapshot(userRef, (doc) => {
                     userData = doc.data();
-                    document.getElementById('user-name').innerText = "హలో, " + user.displayName;
-                    document.getElementById('bucks-bal').innerText = userData.bucks;
-                    document.getElementById('wallet-bal').innerText = "₹" + userData.walletRupees;
-                    document.getElementById('spins-left').innerText = userData.spinsToday;
-                    document.getElementById('ref-count').innerText = userData.referralCount;
+                    updateUI();
+                    if (userData.bucks >= 1000) autoConvert(user.uid);
                 });
                 loadHistory(user.uid);
             } else {
@@ -123,7 +134,22 @@
             }
         });
 
-        document.getElementById('spin-btn').onclick = async () => {
+        function updateUI() {
+            document.getElementById('bucks-bal').innerText = userData.bucks || 0;
+            document.getElementById('wallet-bal').innerText = "₹" + (userData.walletRupees || 0);
+            document.getElementById('spins-left').innerText = userData.spinsToday || 0;
+            document.getElementById('ref-count').innerText = userData.referralCount || 0;
+            document.getElementById('user-name').innerText = "హలో, " + (auth.currentUser ? auth.currentUser.displayName : "యూజర్");
+            
+            const now = Date.now();
+            document.getElementById('spin-btn').disabled = (now - userData.lastSpin < 30000);
+        }
+
+        async function autoConvert(uid) {
+            await updateDoc(doc(db, "users", uid), { bucks: increment(-1000), walletRupees: increment(1) });
+        }
+
+        window.startSpin = async () => {
             if (userData.spinsToday <= 0) return alert("స్పిన్స్ అయిపోయాయి!");
             const now = Date.now();
             if (now - userData.lastSpin < 30000) return alert("30 సెకన్లు ఆగండి!");
@@ -139,7 +165,7 @@
 
             setTimeout(async () => {
                 const won = Math.floor(Math.random() * 200) + 1;
-                if (confirm(`${won} Bucks గెలిచారు! యాడ్ చూసి Double చేయాలా?`)) {
+                if (confirm(`${won} Bucks గెలిచారు! వీడియో చూసి Double చేయాలా?`)) {
                     window.open(smartLink, "_blank");
                     await updateDoc(doc(db, "users", auth.currentUser.uid), { bucks: increment(won * 2) });
                 } else {
@@ -148,41 +174,40 @@
             }, 4000);
         };
 
-        document.getElementById('daily-btn').onclick = () => { 
-            window.open(smartLink, "_blank"); 
-            updateDoc(doc(db, "users", auth.currentUser.uid), { spinsToday: increment(10) }); 
-            alert("Daily Reward యాడ్ అయ్యింది!"); 
+        window.claimBonus = async (type) => {
+            window.open(smartLink, "_blank");
+            const userRef = doc(db, "users", auth.currentUser.uid);
+            if (type === 'daily') {
+                await updateDoc(userRef, { spinsToday: increment(10), lastDaily: Date.now(), lastDate: new Date().toDateString() });
+            } else {
+                await updateDoc(userRef, { spinsToday: increment(5), lastHourly: Date.now() });
+            }
+            alert("Bonus Add అయ్యింది!");
         };
 
-        document.getElementById('hourly-btn').onclick = () => { 
-            window.open(smartLink, "_blank"); 
-            updateDoc(doc(db, "users", auth.currentUser.uid), { spinsToday: increment(5) }); 
-            alert("Hourly Reward యాడ్ అయ్యింది!"); 
-        };
-
-        document.getElementById('withdraw-action-btn').onclick = async () => {
-            if (userData.referralCount < 1 || userData.walletRupees < 50) return alert("అర్హత లేదు!");
+        window.handleWithdraw = async () => {
+            if (userData.referralCount < 1 || userData.walletRupees < 50) return alert("కండిషన్స్ సాటిస్ఫై కాలేదు!");
             window.open(smartLink, "_blank");
             const upi = prompt("UPI ID:");
             const ph = prompt("Phone Number:");
             if (upi && ph) {
-                await addDoc(collection(db, "withdrawals"), { uid: auth.currentUser.uid, name: auth.currentUser.displayName, upi, phone: ph, amount: userData.walletRupees, status: "Pending", date: serverTimestamp() });
+                await addDoc(collection(db, "withdrawals"), { uid: auth.currentUser.uid, upi, ph, amount: userData.walletRupees, status: "Pending", date: serverTimestamp() });
                 await updateDoc(doc(db, "users", auth.currentUser.uid), { walletRupees: 0 });
                 alert("రిక్వెస్ట్ పంపబడింది!");
             }
         };
 
-        function loadHistory(uid) {
-            const q = query(collection(db, "withdrawals"), where("uid", "==", uid), orderBy("date", "desc"));
-            onSnapshot(q, (snap) => {
+        const loadHistory = (uid) => {
+            const qH = query(collection(db, "withdrawals"), where("uid", "==", uid), orderBy("date", "desc"));
+            onSnapshot(qH, (snap) => {
                 const list = document.getElementById('history-list');
                 list.innerHTML = "";
                 snap.forEach(d => {
                     const data = d.data();
-                    list.innerHTML += `<li>₹${data.amount} - ${data.status}</li>`;
+                    list.innerHTML += `<li style="border-left:5px solid orange; padding:5px; margin-bottom:5px;">₹${data.amount} - ${data.status}</li>`;
                 });
             });
-        }
+        };
 
         document.getElementById('login-btn').onclick = () => signInWithPopup(auth, provider);
         const ctx = document.getElementById('wheel').getContext('2d');
