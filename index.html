@@ -196,29 +196,55 @@
         }
 
         window.startSpin = async () => {
-            if (userData.spinsToday <= 0) return alert("స్పిన్స్ అయిపోయాయి!");
-            const now = Date.now();
-            if (now - userData.lastSpin < 30000) return;
+    // 1. స్పిన్స్ ఉన్నాయో లేదో చెక్ చేయడం
+    if (userData.spinsToday <= 0) {
+        alert("ఈ రోజుకి మీ స్పిన్స్ అయిపోయాయి! బోనస్ బటన్స్ ద్వారా మరిన్ని స్పిన్స్ పొందండి.");
+        return;
+    }
 
-            const wheel = document.getElementById('wheel');
-            const deg = Math.floor(Math.random() * 360) + 3600;
-            wheel.style.transform = `rotate(${deg}deg)`;
+    // 2. బక్స్ బ్యాలెన్స్ చెక్ చేయడం (కనీసం 50 ఉండాలి)
+    if (userData.bucks < 50) {
+        alert("క్షమించండి! స్పిన్ చేయడానికి కనీసం 50 Bucks ఉండాలి. డైలీ బోనస్ క్లెయిమ్ చేయండి.");
+        return;
+    }
 
-            await updateDoc(doc(db, "users", auth.currentUser.uid), { lastSpin: now });
+    // 3. కోల్ డౌన్ టైమర్ చెక్ (30 సెకన్లు)
+    const now = Date.now();
+    if (now - userData.lastSpin < 30000) {
+        alert("దయచేసి 30 సెకన్లు ఆగండి!");
+        return;
+    }
 
-            setTimeout(async () => {
-                const won = Math.floor(Math.random() * 200) + 1;
-                let finalWon = won;
-                if (confirm(`${won} Bucks గెలిచారు! వీడియో చుస్తే Double (x2) అవుతాయి.`)) {
-                    window.open("YOUR_ADSTERRA_DIRECT_LINK", "_blank");
-                    finalWon = won * 2;
-                }
-                await updateDoc(doc(db, "users", auth.currentUser.uid), {
-                    bucks: increment(finalWon),
-                    spinsToday: increment(-1)
-                });
-            }, 4000);
-        };
+    // 4. స్పిన్ యానిమేషన్ ప్రారంభం
+    const wheel = document.getElementById('wheel');
+    const deg = Math.floor(Math.random() * 360) + 3600;
+    wheel.style.transform = `rotate(${deg}deg)`;
+
+    // 5. వెంటనే 50 Bucks మరియు 1 Spin కట్ చేయడం
+    await updateDoc(doc(db, "users", auth.currentUser.uid), { 
+        lastSpin: now,
+        bucks: increment(-50), // 50 Bucks కటింగ్
+        spinsToday: increment(-1) 
+    });
+
+    // 6. ఫలితం చూపించడం (4 సెకన్ల తర్వాత)
+    setTimeout(async () => {
+        const won = Math.floor(Math.random() * 200) + 1; // 1 నుండి 200 మధ్య విన్నింగ్
+        let finalWon = won;
+        
+        if (confirm(`మీరు ${won} Bucks గెలిచారు! యాడ్ చూసి దీన్ని Double (x2) చేయాలా?`)) {
+            window.open("YOUR_ADSTERRA_DIRECT_LINK", "_blank");
+            finalWon = won * 2;
+        }
+
+        // గెలిచిన బక్స్‌ని యాడ్ చేయడం
+        await updateDoc(doc(db, "users", auth.currentUser.uid), {
+            bucks: increment(finalWon)
+        });
+        
+    }, 4000);
+};
+        
 
         window.claimBonus = async (type) => {
             window.open("YOUR_ADSTERRA_DIRECT_LINK", "_blank");
