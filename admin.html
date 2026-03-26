@@ -5,24 +5,34 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin Panel - Withdrawals</title>
     <style>
-        body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; padding: 20px; }
-        .request-card { background: white; padding: 15px; margin-bottom: 15px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); border-left: 5px solid #3498db; }
+        body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; padding: 20px; text-align: center; }
+        .request-card { background: white; padding: 15px; margin: 15px auto; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); border-left: 5px solid #3498db; max-width: 500px; text-align: left; }
         .btn { padding: 8px 15px; margin-right: 10px; cursor: pointer; border: none; border-radius: 5px; color: white; font-weight: bold; }
         .approve-btn { background: #2980b9; }
         .paid-btn { background: #27ae60; }
+        .login-btn { background: #4285F4; padding: 15px 30px; font-size: 18px; margin-top: 50px; }
         .status-tag { font-weight: bold; color: #e67e22; }
+        #admin-content { display: none; }
     </style>
 </head>
 <body>
 
-    <h2>Withdrawal Requests (Admin Only)</h2>
-    <div id="admin-list">Loading Requests...</div>
+    <div id="login-section">
+        <h2>Admin Login Required</h2>
+        <button id="admin-login-btn" class="login-btn btn">Google తో లాగిన్ అవ్వండి</button>
+    </div>
+
+    <div id="admin-content">
+        <h2>Withdrawal Requests</h2>
+        <button class="btn" style="background: #e74c3c; margin-bottom: 20px;" onclick="logout()">Logout</button>
+        <div id="admin-list">Loading Requests...</div>
+    </div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getFirestore, collection, onSnapshot, doc, updateDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+        import { getFirestore, collection, onSnapshot, doc, updateDoc, query, orderBy } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-        // మీ కన్ఫిగరేషన్ (తప్పకుండా మీ వివరాలే ఉండాలి)
         const firebaseConfig = {
             apiKey: "AIzaSyD1P5PoYl467FXxaaWFaCGHWuZs1yUMGwY",
             authDomain: "gemini-spinning-wheel-game.firebaseapp.com",
@@ -33,48 +43,68 @@
         };
 
         const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
         const db = getFirestore(app);
+        const provider = new GoogleAuthProvider();
 
+        const loginSection = document.getElementById('login-section');
+        const adminContent = document.getElementById('admin-content');
         const listDiv = document.getElementById('admin-list');
 
-        // రియల్-టైమ్ డేటా లోడింగ్
-        onSnapshot(collection(db, "withdrawals"), (snap) => {
-            listDiv.innerHTML = "";
-            if (snap.empty) {
-                listDiv.innerHTML = "ప్రస్తుతానికి ఎటువంటి విత్‌డ్రా రిక్వెస్ట్‌లు లేవు.";
-                return;
+        // లాగిన్ స్టేట్ చెక్
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                loginSection.style.display = 'none';
+                adminContent.style.display = 'block';
+                loadRequests();
+            } else {
+                loginSection.style.display = 'block';
+                adminContent.style.display = 'none';
             }
-
-            snap.forEach((docRes) => {
-                const data = docRes.data();
-                const id = docRes.id;
-                
-                // కార్డు క్రియేషన్
-                const card = document.createElement('div');
-                card.className = 'request-card';
-                card.innerHTML = `
-                    <p><strong>User:</strong> ${data.name || 'Unknown'}</p>
-                    <p><strong>Phone:</strong> ${data.phone || 'N/A'}</p>
-                    <p><strong>Amount:</strong> ₹${data.amount}</p>
-                    <p><strong>UPI ID:</strong> ${data.upi}</p>
-                    <p><strong>Status:</strong> <span class="status-tag">${data.status}</span></p>
-                    <button class="btn approve-btn" onclick="updateReqStatus('${id}', 'Approved')">Approve</button>
-                    <button class="btn paid-btn" onclick="updateReqStatus('${id}', 'Paid')">Mark as Paid</button>
-                `;
-                listDiv.appendChild(card);
-            });
         });
 
-        // స్టేటస్ అప్‌డేట్ ఫంక్షన్
-        window.updateReqStatus = async (id, newStatus) => {
+        // రిక్వెస్ట్‌లు లోడ్ చేయడం
+        function loadRequests() {
+            const q = query(collection(db, "withdrawals"), orderBy("date", "desc"));
+            onSnapshot(q, (snap) => {
+                listDiv.innerHTML = "";
+                if (snap.empty) {
+                    listDiv.innerHTML = "ప్రస్తుతానికి ఎటువంటి రిక్వెస్ట్‌లు లేవు.";
+                    return;
+                }
+                snap.forEach((docRes) => {
+                    const data = docRes.data();
+                    const id = docRes.id;
+                    const card = document.createElement('div');
+                    card.className = 'request-card';
+                    card.innerHTML = `
+                        <p><strong>User:</strong> ${data.name || 'Unknown'}</p>
+                        <p><strong>Amount:</strong> ₹${data.amount}</p>
+                        <p><strong>UPI ID:</strong> ${data.upi}</p>
+                        <p><strong>Phone:</strong> ${data.phone || 'N/A'}</p>
+                        <p><strong>Status:</strong> <span class="status-tag">${data.status}</span></p>
+                        <hr>
+                        <button class="btn approve-btn" onclick="updateStatus('${id}', 'Approved')">Approve</button>
+                        <button class="btn paid-btn" onclick="updateStatus('${id}', 'Paid')">Mark as Paid</button>
+                    `;
+                    listDiv.appendChild(card);
+                });
+            }, (error) => {
+                listDiv.innerHTML = "<p style='color:red;'>Permission Denied: మీరు అడ్మిన్ కాకపోవచ్చు లేదా Firebase Rules అప్‌డేట్ చేయాలి.</p>";
+            });
+        }
+
+        window.updateStatus = async (id, newStatus) => {
             try {
-                const docRef = doc(db, "withdrawals", id);
-                await updateDoc(docRef, { status: newStatus });
-                alert("Status updated to: " + newStatus);
+                await updateDoc(doc(db, "withdrawals", id), { status: newStatus });
+                alert("Status updated!");
             } catch (e) {
-                alert("Error updating status: " + e.message);
+                alert("Error: " + e.message);
             }
         };
+
+        window.logout = () => signOut(auth);
+        document.getElementById('admin-login-btn').onclick = () => signInWithPopup(auth, provider);
     </script>
 </body>
 </html>
