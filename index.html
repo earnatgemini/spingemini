@@ -27,7 +27,7 @@
 <body>
 
     <div id="login-section">
-        <h2 style="margin-top: 50px;">Spin & Earn</h2>
+        <h2 style="margin-top: 50px;">Spin & Earn Insula Tuta</h2>
         <button id="login-btn" class="btn" style="background: #4285F4;">Google తో లాగిన్ అవ్వండి</button>
     </div>
 
@@ -130,7 +130,7 @@
             await updateDoc(doc(db, "users", auth.currentUser.uid), { lastSpin: now, spinsToday: increment(-1) });
 
             setTimeout(async () => {
-                const won = Math.floor(Math.random() * 200) + 1;
+                const won = Math.floor(Math.random() * 99) + 1;
                 if (confirm(`${won} Bucks గెలిచారు! యాడ్ చూసి Double చేయాలా?`)) {
                     window.open(smartLink, "_blank");
                     await updateDoc(doc(db, "users", auth.currentUser.uid), { bucks: increment(won * 2) });
