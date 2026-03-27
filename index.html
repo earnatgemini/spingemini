@@ -12,7 +12,7 @@
         #wheel-container { margin: 20px auto; position: relative; width: 280px; height: 280px; }
         canvas { border: 5px solid #333; border-radius: 50%; width: 100%; height: 100%; transition: transform 4s cubic-bezier(0.1, 0.7, 0.1, 1); }
         .btn { padding: 12px; font-size: 16px; cursor: pointer; border: none; border-radius: 8px; margin: 5px; width: 85%; max-width: 300px; color: white; font-weight: bold; }
-        #spin-btn { background: #e74c3c; }
+        #spin-btn { background: #4285F4; }
         .bonus-btn { background: #3498db; }
         .bonus-btn:disabled { background: #bdc3c7; cursor: not-allowed; }
         .withdraw-btn { background: #f39c12; }
@@ -34,12 +34,12 @@
             <h3 id="user-name">Loading...</h3>
             <div class="balance-box">
                 <div>Bucks: <span id="bucks-bal" class="stat">0</span></div>
-                <div>Wallet: <span id="wallet-bal" class="stat">Rs.0</span></div>
+                <div>Wallet: <span id="wallet-bal" class="stat">₹0</span></div>
             </div>
             <div style="font-size: 14px; margin-bottom: 10px;">
                 నేటి స్పిన్స్: <span id="spins-left">0</span> | రిఫరల్స్: <span id="ref-count">0</span>
             </div>
-            <button class="btn withdraw-btn" onclick="handleWithdraw()">Withdraw (Min Rs.50 + 1 Ref)</button>
+            <button class="btn withdraw-btn" onclick="handleWithdraw()">Withdraw (Min ₹50 + 1 Ref)</button>
             <div class="ref-box">రిఫరల్ లింక్: <span id="ref-link"></span></div>
         </div>
 
@@ -47,15 +47,15 @@
             <canvas id="wheel" width="300" height="300"></canvas>
         </div>
 
-        <button id="spin-btn" class="btn" onclick="startSpin()">Spin (30s Cooldown)</button>
+        <button id="spin-btn" class="btn" onclick="startSpin()">Spin (Spin Gap 30 Sec) </button>
         
         <div style="margin-top: 10px;">
-            <button id="daily-btn" class="btn bonus-btn" onclick="claimBonus('daily')">Daily (+10 Spins)</button>
-            <button id="hourly-btn" class="btn bonus-btn" onclick="claimBonus('hourly')">Hourly (+5 Spins)</button>
+            <button id="daily-btn" class="btn bonus-btn" onclick="claimBonus('daily')">Daily Reward (+10 Spins)</button>
+            <button id="hourly-btn" class="btn bonus-btn" onclick="claimBonus('hourly')">Hourly Reward (+5 Spins)</button>
         </div>
 
         <div id="history-section" style="margin: 20px auto; max-width: 350px; text-align: left; background: white; padding: 15px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
-            <h4 style="margin: 0; border-bottom: 2px solid #eee; padding-bottom: 5px;">💸 పేమెంట్ హిస్టరీ</h4>
+            <h4 style="margin: 0; border-bottom: 2px solid #eee; padding-bottom: 5px;">💸 అందుకున్న గిఫ్ట్స్🎁 </h4>
             <div id="history-empty" style="font-size: 12px; padding: 10px; text-align: center;">ఇంకా రిక్వెస్ట్‌లు లేవు.</div>
             <ul id="history-list" style="font-size: 12px; list-style: none; padding: 0; margin-top: 10px;"></ul>
         </div>
@@ -140,7 +140,7 @@
         function updateUI() {
             document.getElementById('user-name').innerText = "హలో, " + (auth.currentUser ? auth.currentUser.displayName : "యూజర్");
             document.getElementById('bucks-bal').innerText = userData.bucks || 0;
-            document.getElementById('wallet-bal').innerText = "Rs." + (userData.walletRupees || 0);
+            document.getElementById('wallet-bal').innerText = "₹" + (userData.walletRupees || 0);
             document.getElementById('spins-left').innerText = userData.spinsToday || 0;
             document.getElementById('ref-count').innerText = userData.referralCount || 0;
 
@@ -187,9 +187,9 @@
         };
 
         async function checkAutoConvert(uid) {
-            if (userData.bucks >= 1000) {
+            if (userData.bucks >= 2000) {
                 await updateDoc(doc(db, "users", uid), {
-                    bucks: increment(-1000),
+                    bucks: increment(-2000),
                     walletRupees: increment(1)
                 });
             }
@@ -207,7 +207,7 @@
             await updateDoc(doc(db, "users", auth.currentUser.uid), { lastSpin: now });
 
             setTimeout(async () => {
-                const won = Math.floor(Math.random() * 200) + 1;
+                const won = Math.floor(Math.random() * 100) + 1;
                 let finalWon = won;
                 if (confirm(`${won} Bucks గెలిచారు! వీడియో చుస్తే Double (x2) అవుతాయి.`)) {
                     window.open("YOUR_ADSTERRA_DIRECT_LINK", "_blank");
