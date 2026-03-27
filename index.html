@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Spin & Earn Insula Tuta</title>
+    <title>Spin & Earn - Official</title>
     
     <script src="https://pl28980962.profitablecpmratenetwork.com/df/a8/bb/dfa8bbc977c188242de4e07ea4519433.js"></script>
 
@@ -27,7 +27,7 @@
 <body>
 
     <div id="login-section">
-        <h2 style="margin-top: 50px;">Spin & Earn India</h2>
+        <h2 style="margin-top: 50px;">Spin & Earn</h2>
         <button id="login-btn" class="btn" style="background: #4285F4;">Google తో లాగిన్ అవ్వండి</button>
     </div>
 
@@ -130,7 +130,7 @@
             await updateDoc(doc(db, "users", auth.currentUser.uid), { lastSpin: now, spinsToday: increment(-1) });
 
             setTimeout(async () => {
-                const won = Math.floor(Math.random() * 99) + 1;
+                const won = Math.floor(Math.random() * 200) + 1;
                 if (confirm(`${won} Bucks గెలిచారు! యాడ్ చూసి Double చేయాలా?`)) {
                     window.open(smartLink, "_blank");
                     await updateDoc(doc(db, "users", auth.currentUser.uid), { bucks: increment(won * 2) });
